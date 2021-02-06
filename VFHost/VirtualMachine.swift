@@ -15,15 +15,6 @@ class VirtualMachine: ObservableObject {
     var cfg: VZVirtualMachineConfiguration?
     var vm: VZVirtualMachine?
     
-    let coreRange = Double(VZVirtualMachineConfiguration.maximumAllowedCPUCount - VZVirtualMachineConfiguration.minimumAllowedCPUCount)
-    let maxCore = Double(VZVirtualMachineConfiguration.maximumAllowedCPUCount)
-    let minCore = Double(VZVirtualMachineConfiguration.minimumAllowedCPUCount)
-    
-    // in GB
-    let memRange = (VZVirtualMachineConfiguration.maximumAllowedMemorySize - VZVirtualMachineConfiguration.minimumAllowedMemorySize)/(1024*1024*1024)
-    let maxMem = VZVirtualMachineConfiguration.maximumAllowedMemorySize/(1024*1024*1024)
-    let minMem = VZVirtualMachineConfiguration.minimumAllowedMemorySize/(1024*1024*1024)
-    
     var ptyFD: Int32 = 0
     var ptyPath = ""
     
@@ -70,7 +61,7 @@ class VirtualMachine: ObservableObject {
         let networkConfig = VZVirtioNetworkDeviceConfiguration()
         networkConfig.attachment = VZNATNetworkDeviceAttachment()
         config.networkDevices = [networkConfig]
-                
+        
         if !vp.autoCore {
             config.cpuCount = Int(vp.coreAlloc)
         }
@@ -78,6 +69,8 @@ class VirtualMachine: ObservableObject {
         if !vp.autoMem {
             config.memorySize = UInt64(vp.memoryAlloc * 1024*1024*1024)
         } else {
+            let minMem = VZVirtualMachineConfiguration.minimumAllowedMemorySize/(1024*1024*1024)
+            let memRange = (VZVirtualMachineConfiguration.maximumAllowedMemorySize - VZVirtualMachineConfiguration.minimumAllowedMemorySize)/(1024*1024*1024)
             var mem = (memRange / 4) + minMem
             mem = mem * 1024*1024*1024
             config.memorySize = mem
@@ -92,7 +85,7 @@ class VirtualMachine: ObservableObject {
     func configurePTY() -> Int32 {
         var ptyFD: Int32 = 0
         var sfd: Int32 = 1
-
+        
         if openpty(&ptyFD, &sfd, nil, nil, nil) == -1 {
             os_log(.error, "Error opening PTY")
             return -1

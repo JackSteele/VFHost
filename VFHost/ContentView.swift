@@ -10,7 +10,9 @@ import Virtualization
 
 struct ContentView: View {
     @ObservedObject var VM = VirtualMachine()
-        
+    
+    let paramLimits = ParameterLimits()
+    
     @State var errorShown = false
     @State var errorMessage = ""
     @State var started = false
@@ -26,6 +28,9 @@ struct ContentView: View {
         }
         if let def = UserDefaults.standard.string(forKey: "diskPath") {
             vp.diskPath = def
+        }
+        if let def = UserDefaults.standard.string(forKey: "kernelParams") {
+            vp.kernelParams = def
         }
     }
     
@@ -78,7 +83,7 @@ struct ContentView: View {
                 }
                 
                 Slider(value: $vp.coreAlloc,
-                       in: VM.minCore...VM.maxCore,
+                       in: paramLimits.minCores...paramLimits.maxCores,
                        step: 1
                 )
                 .padding(.horizontal, 10)
@@ -94,7 +99,7 @@ struct ContentView: View {
                 }
                 
                 Slider(value: $vp.memoryAlloc,
-                       in: (Double(VM.minMem)+0.5)...Double(VM.maxMem),
+                       in: paramLimits.minMem...paramLimits.maxMem,
                        step: 0.5)
                     .padding(.horizontal, 10)
                     .disabled(vp.autoMem)
@@ -138,13 +143,10 @@ struct ContentView: View {
     }
     
     func saveDefaults() {
-        UserDefaults.standard.set(vp.autoCore, forKey: "autoCore")
-        UserDefaults.standard.set(vp.autoMem, forKey: "autoMem")
-        UserDefaults.standard.set(vp.memoryAlloc, forKey: "memAlloc")
-        UserDefaults.standard.set(vp.coreAlloc, forKey: "coreAlloc")
         UserDefaults.standard.set(vp.ramdiskPath, forKey: "ramdiskPath")
         UserDefaults.standard.set(vp.kernelPath, forKey: "kernelPath")
         UserDefaults.standard.set(vp.diskPath, forKey: "diskPath")
+        UserDefaults.standard.set(vp.kernelParams, forKey: "kernelParams")
     }
     
     func startVM() {
@@ -172,6 +174,7 @@ struct ContentView: View {
         do {
             try VM.configure(vp: self.vp)
             try VM.start()
+            VM.connect()
         } catch {
             started.toggle()
         }
@@ -184,7 +187,6 @@ struct ContentView: View {
         dialog.canChooseDirectories = false
         dialog.showsResizeIndicator = true
         
-        
         if (dialog.runModal() == NSApplication.ModalResponse.OK) {
             if let url = dialog.url {
                 return url.path
@@ -193,6 +195,16 @@ struct ContentView: View {
         
         return ""
     }
+}
+
+struct ParameterLimits {
+    // (10
+    let minMem = Double(VZVirtualMachineConfiguration.minimumAllowedMemorySize/(1073741824)) + 0.5
+    let maxMem = Double(VZVirtualMachineConfiguration.maximumAllowedMemorySize/(1073741824))
+    let memRange = Double((VZVirtualMachineConfiguration.maximumAllowedMemorySize - VZVirtualMachineConfiguration.minimumAllowedMemorySize)/(1073741824))
+    let minCores = Double(VZVirtualMachineConfiguration.minimumAllowedCPUCount)
+    let maxCores = Double(VZVirtualMachineConfiguration.maximumAllowedCPUCount)
+    let coreRange = Double(VZVirtualMachineConfiguration.maximumAllowedCPUCount - VZVirtualMachineConfiguration.minimumAllowedCPUCount)
 }
 
 class VMParameters: NSObject, ObservableObject {
