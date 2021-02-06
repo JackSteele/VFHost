@@ -11,6 +11,7 @@
 		214D0F5425CC9FC00065636A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 214D0F5325CC9FC00065636A /* ContentView.swift */; };
 		214D0F5625CC9FC10065636A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 214D0F5525CC9FC10065636A /* Assets.xcassets */; };
 		214D0F5925CC9FC10065636A /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 214D0F5825CC9FC10065636A /* Preview Assets.xcassets */; };
+		214D0F6325CCA1850065636A /* VirtualMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 214D0F6225CCA1850065636A /* VirtualMachine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -21,6 +22,7 @@
 		214D0F5825CC9FC10065636A /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		214D0F5A25CC9FC10065636A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		214D0F5B25CC9FC10065636A /* VFHost.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VFHost.entitlements; sourceTree = "<group>"; };
+		214D0F6225CCA1850065636A /* VirtualMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualMachine.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +57,7 @@
 			children = (
 				214D0F5125CC9FC00065636A /* VFHostApp.swift */,
 				214D0F5325CC9FC00065636A /* ContentView.swift */,
+				214D0F6225CCA1850065636A /* VirtualMachine.swift */,
 				214D0F5525CC9FC10065636A /* Assets.xcassets */,
 				214D0F5A25CC9FC10065636A /* Info.plist */,
 				214D0F5B25CC9FC10065636A /* VFHost.entitlements */,
@@ -141,6 +144,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				214D0F5425CC9FC00065636A /* ContentView.swift in Sources */,
+				214D0F6325CCA1850065636A /* VirtualMachine.swift in Sources */,
 				214D0F5225CC9FC00065636A /* VFHostApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -269,10 +273,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = VFHost/VFHost.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"VFHost/Preview Content\"";
-				DEVELOPMENT_TEAM = BE6Q2675KP;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = VFHost/Info.plist;
@@ -293,10 +298,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = VFHost/VFHost.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"VFHost/Preview Content\"";
-				DEVELOPMENT_TEAM = BE6Q2675KP;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = VFHost/Info.plist;
