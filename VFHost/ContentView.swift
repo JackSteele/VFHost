@@ -10,14 +10,20 @@ import Virtualization
 
 struct ContentView: View {
     @ObservedObject var VM = VirtualMachine()
+    @ObservedObject var MM = ManagedMode()
     
     let paramLimits = ParameterLimits()
     
+    @State var downloadProgress = 0.0
     @State var errorShown = false
     @State var errorMessage = ""
     @State var started = false
+    @State var managed = true
+    @State var height = 300
     
     @StateObject var vp = VMParameters()
+    
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     func loadData() {
         if let def = UserDefaults.standard.string(forKey: "kernelPath") {
@@ -36,92 +42,13 @@ struct ContentView: View {
     
     var body: some View {
         VStack {
-            Text(started ? "VM running" : "VM stopped").font(.largeTitle)
-            
-            Form {
-                Text("Kernel path")
-                HStack {
-                    TextField("~/distribution/vmlinuz", text: $vp.kernelPath)
-                    Button("Select file") {
-                        vp.kernelPath = openFile(kind: "kernel")
-                    }
-                }
-                
-                Text("Ramdisk path")
-                HStack {
-                    TextField("~/distribution/initrd", text: $vp.ramdiskPath)
-                    Button("Select file") {
-                        vp.ramdiskPath = openFile(kind: "ramdisk")
-                    }
-                }
-                
-                Text("Disk image path")
-                HStack {
-                    TextField("~/distribution/disk.img", text: $vp.diskPath)
-                    Button("Select file") {
-                        vp.diskPath = openFile(kind: "disk image")
-                    }
-                }
-                
-                Text("Kernel parameters")
-                HStack {
-                    TextField("console=hvc0", text: $vp.kernelParams)
-                }
-            }
-            .disabled(started)
-            .padding()
-            
-            Form {
-                HStack {
-                    Text("CPU cores allocated")
-                    Toggle(isOn: $vp.autoCore, label: {
-                        Text("Auto")
-                    })
-                    Spacer()
-                    Text(vp.autoCore ? "" : "\(Int(vp.coreAlloc)) core(s)")
-                    
-                }
-                
-                Slider(value: $vp.coreAlloc,
-                       in: paramLimits.minCores...paramLimits.maxCores,
-                       step: 1
-                )
-                .padding(.horizontal, 10)
-                .disabled(vp.autoCore)
-                
-                HStack {
-                    Text("Memory allocated")
-                    Toggle(isOn: $vp.autoMem, label: {
-                        Text("Auto")
-                    })
-                    Spacer()
-                    Text(vp.autoMem ? "" : String(format: "%.2f GB", vp.memoryAlloc))
-                }
-                
-                Slider(value: $vp.memoryAlloc,
-                       in: paramLimits.minMem...paramLimits.maxMem,
-                       step: 0.5)
-                    .padding(.horizontal, 10)
-                    .disabled(vp.autoMem)
-            }
-            .disabled(started)
-            .padding()
-            .alert(isPresented: $errorShown, content: {
-                Alert(title: Text(errorMessage))
-            })
-            
-            Divider()
-            
-            HStack {
-                Button("Connect") {
-                    VM.connect()
-                }
-                .disabled(!started)
-                
+            HStack{
+                Spacer()
+                Text(started ? "VM running" : "VM stopped").font(.largeTitle)
                 Spacer()
                 
                 Toggle(isOn: $started) {
-                    Text("VM")
+                    Text("")
                 }
                 .onChange(of: started, perform: { running in
                     if running {
@@ -131,6 +58,114 @@ struct ContentView: View {
                     }
                 })
                 .toggleStyle(SwitchToggleStyle())
+                .disabled(managed)
+            }
+            Divider()
+            if managed {
+                Spacer()
+                Text("Ubuntu is not installed.")
+                    .font(.title2)
+                Text("\(String(describing: MM.getArch())) Mac detected")
+                    .font(.title3)
+                Button("Install Ubuntu 20.04 LTS") {
+                        MM.getDistro(.Focal, arch: MM.getArch())
+                }.disabled(MM.downloading)
+                
+                if (MM.downloading) {
+                    ProgressView(value: downloadProgress)
+                        .padding()
+                        .onReceive(timer, perform: { _ in
+                            if let dp = MM.downloadProgress {
+                                downloadProgress = dp.fractionCompleted
+                            }
+                        })
+                }
+                Spacer()
+            } else {
+                Form {
+                    Text("Kernel path")
+                    HStack {
+                        TextField("~/distribution/vmlinuz", text: $vp.kernelPath)
+                        Button("Select file") {
+                            vp.kernelPath = openFile(kind: "kernel")
+                        }
+                    }
+                    
+                    Text("Ramdisk path")
+                    HStack {
+                        TextField("~/distribution/initrd", text: $vp.ramdiskPath)
+                        Button("Select file") {
+                            vp.ramdiskPath = openFile(kind: "ramdisk")
+                        }
+                    }
+                    
+                    Text("Disk image path")
+                    HStack {
+                        TextField("~/distribution/disk.img", text: $vp.diskPath)
+                        Button("Select file") {
+                            vp.diskPath = openFile(kind: "disk image")
+                        }
+                    }
+                    
+                    Text("Kernel parameters")
+                    HStack {
+                        TextField("console=hvc0", text: $vp.kernelParams)
+                    }
+                }
+                .disabled(started)
+                .padding()
+                
+                Form {
+                    HStack {
+                        Text("CPU cores allocated")
+                        Toggle(isOn: $vp.autoCore, label: {
+                            Text("Auto")
+                        })
+                        Spacer()
+                        Text(vp.autoCore ? "" : "\(Int(vp.coreAlloc)) core(s)")
+                    }
+                    
+                    Slider(value: $vp.coreAlloc,
+                           in: paramLimits.minCores...paramLimits.maxCores,
+                           step: 1
+                    )
+                    .padding(.horizontal, 10)
+                    .disabled(vp.autoCore)
+                    
+                    HStack {
+                        Text("Memory allocated")
+                        Toggle(isOn: $vp.autoMem, label: {
+                            Text("Auto")
+                        })
+                        Spacer()
+                        Text(vp.autoMem ? "" : String(format: "%.2f GB", vp.memoryAlloc))
+                    }
+                    
+                    Slider(value: $vp.memoryAlloc,
+                           in: paramLimits.minMem...paramLimits.maxMem,
+                           step: 0.5)
+                        .padding(.horizontal, 10)
+                        .disabled(vp.autoMem)
+                }
+                .disabled(started)
+                .padding()
+                .alert(isPresented: $errorShown, content: {
+                    Alert(title: Text(errorMessage))
+                })
+            }
+            
+            /// Bottom bit
+            Divider()
+            
+            HStack {
+                Button("Reconnect") {
+                    VM.connect()
+                }
+                .disabled(!started)
+                Spacer()
+                Toggle(isOn: $managed, label: {
+                    Text("Managed mode")
+                })
             }
             .padding()
         }

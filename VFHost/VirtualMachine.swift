@@ -37,7 +37,7 @@ class VirtualMachine: ObservableObject {
             config.storageDevices = [blockDevice]
         } catch {
             os_log("Couldn't attach disk image")
-            return
+            throw VZError(.internalError)
         }
         
         let ptyFD = configurePTY()
@@ -90,6 +90,7 @@ class VirtualMachine: ObservableObject {
             os_log(.error, "Error opening PTY")
             return -1
         }
+        
         self.ptyPath = String(cString: ptsname(ptyFD))
         self.ptyFD = ptyFD
         
