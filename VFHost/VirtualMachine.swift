@@ -20,19 +20,19 @@ class VirtualMachine: ObservableObject {
     
     @Published var running = false
     
-    func configure(vp: VMParameters) throws {
+    func configure(_ vp: VMParameters) throws {
         let config = VZVirtualMachineConfiguration()
         
-        let bootLoader = VZLinuxBootLoader(kernelURL: URL(string: "file://\(vp.kernelPath)")!)
+        let bootLoader = VZLinuxBootLoader(kernelURL: URL(fileURLWithPath: vp.kernelPath))
         if vp.ramdiskPath != "" {
-            bootLoader.initialRamdiskURL = URL(string: "file://\(vp.ramdiskPath)")!
+            bootLoader.initialRamdiskURL = URL(fileURLWithPath: vp.ramdiskPath)
         }
         bootLoader.commandLine = vp.kernelParams
         
         config.bootLoader = bootLoader
         
         do {
-            let storage = try VZDiskImageStorageDeviceAttachment(url: URL(string: "file://\(vp.diskPath)")!, readOnly: false)
+            let storage = try VZDiskImageStorageDeviceAttachment(url: URL(fileURLWithPath: vp.diskPath), readOnly: false)
             let blockDevice = VZVirtioBlockDeviceConfiguration(attachment: storage)
             config.storageDevices = [blockDevice]
         } catch {
@@ -138,6 +138,17 @@ class VirtualMachine: ObservableObject {
         if let error = error {
             NSLog(error["NSAppleScriptErrorMessage"] as! String)
         }
-        
     }
+}
+
+struct VMParameters {
+    var kernelParams = "console=hvc0"
+    var kernelPath = ""
+    var ramdiskPath = ""
+    var diskPath = ""
+    // in GB - very lazy
+    var memoryAlloc: Double
+    var autoCore = true
+    var autoMem = true
+    var coreAlloc: Double
 }

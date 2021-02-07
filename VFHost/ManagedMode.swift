@@ -9,15 +9,46 @@ import Foundation
 import os.log
 
 class ManagedMode: NSObject, ObservableObject {
-    @Published var downloading: Bool = false
+    @Published var installing: Bool = false
     @Published var downloadProgress: Progress?
     @Published var fractionCompleted: Double?
+    @Published var installed: [Distro?] = []
     
     private var progressObs: [NSKeyValueObservation?] = []
     
     func getArch() -> Arch {
         let archInfo = NSString(utf8String: NXGetLocalArchInfo().pointee.description)
         return archInfo!.contains("ARM64") ? .arm64 : .x86_64
+    }
+    
+    func detectInstalled() {
+        let fm = FileManager.default
+        let ourDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost")
+        
+        var installed = [Distro]()
+        
+        for dist in Distro.allCases {
+            let distDir = ourDir.appendingPathComponent(String(describing: dist)).path
+            var isDir: ObjCBool = false
+            if fm.fileExists(atPath: distDir, isDirectory: &isDir) {
+                if isDir.boolValue {
+                    installed.append(dist)
+                }
+            }
+        }
+        
+        self.installed = installed
+    }
+    
+    func firstLaunch(dist: Distro) {
+        switch dist {
+        case .Focal:
+            focalFirstLaunch()
+        }
+    }
+    
+    func focalFirstLaunch() {
+        
     }
     
     func getDistro(_ dist: Distro, arch: Arch) {
@@ -32,14 +63,14 @@ class ManagedMode: NSObject, ObservableObject {
         let distDir = ourDir.appendingPathComponent(String(describing: dist))
         
         downloadProgress = Progress(totalUnitCount: Int64(distURLs.count))
-
+        
         do {
             try fm.createDirectory(at: distDir, withIntermediateDirectories: true, attributes: nil)
         } catch {
             return
         }
         
-        downloading = true
+        installing = true
         
         for (type, urlString) in distURLs {
             var req = URLRequest(url: URL(string: urlString)!)
@@ -52,19 +83,38 @@ class ManagedMode: NSObject, ObservableObject {
                         try data.write(to: distDir.appendingPathComponent(type + "-" + String(describing: arch)))
                     } catch {
                         os_log(.error, "I just couldn't pull it off this time. Sorry guys.")
-                        self.downloading = false
+                        return
+                        
+                    }
+                    if self.downloadProgress!.isFinished {
+                        
+//                        DispatchQueue.main.async {
+//                        self.installing = false
+//                            self.detectInstalled()
+//                        }
                     }
                 }
             }
             self.downloadProgress?.addChild(task.progress, withPendingUnitCount: 1)
-
             task.resume()
+        }
+    }
+    
+    func rmDistro(_ dist: Distro) {
+        let fm = FileManager.default
+        let ourDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost")
+        let distDir = ourDir.appendingPathComponent(String(describing: dist))
+        do {
+            try fm.removeItem(at: distDir)
+            detectInstalled()
+        } catch {
+            os_log(.error, "had trouble removing distro directory")
         }
     }
 }
 
 // We have one option right now
-enum Distro: String {
+enum Distro: CaseIterable {
     case Focal
 }
 

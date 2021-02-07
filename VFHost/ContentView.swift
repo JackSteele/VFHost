@@ -20,23 +20,24 @@ struct ContentView: View {
     @State var started = false
     @State var managed = true
     @State var height = 300
+    @State var installed: [Distro?] = []
     
-    @StateObject var vp = VMParameters()
+    @StateObject var params = UIParameters()
     
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    let timer = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
     
     func loadData() {
         if let def = UserDefaults.standard.string(forKey: "kernelPath") {
-            vp.kernelPath = def
+            params.kernelPath = def
         }
         if let def = UserDefaults.standard.string(forKey: "ramdiskPath") {
-            vp.ramdiskPath = def
+            params.ramdiskPath = def
         }
         if let def = UserDefaults.standard.string(forKey: "diskPath") {
-            vp.diskPath = def
+            params.diskPath = def
         }
         if let def = UserDefaults.standard.string(forKey: "kernelParams") {
-            vp.kernelParams = def
+            params.kernelParams = def
         }
     }
     
@@ -63,53 +64,80 @@ struct ContentView: View {
             Divider()
             if managed {
                 Spacer()
-                Text("Ubuntu is not installed.")
-                    .font(.title2)
-                Text("\(String(describing: MM.getArch())) Mac detected")
-                    .font(.title3)
-                Button("Install Ubuntu 20.04 LTS") {
-                        MM.getDistro(.Focal, arch: MM.getArch())
-                }.disabled(MM.downloading)
-                
-                if (MM.downloading) {
-                    ProgressView(value: downloadProgress)
-                        .padding()
-                        .onReceive(timer, perform: { _ in
-                            if let dp = MM.downloadProgress {
-                                downloadProgress = dp.fractionCompleted
+                VStack {
+                    if (MM.installed.count > 0) {
+                        Spacer()
+                        Text("Linux is installed.")
+                            .font(.title)
+                            .padding()
+                        Spacer()
+                        Text("Something wrong?")
+                            .font(.footnote)
+                        Button("Uninstall Ubuntu Focal") {
+                            for distro in MM.installed {
+                                MM.rmDistro(distro!)
                             }
-                        })
-                }
+                        }
+                        .font(.footnote)
+                    } else {
+                        Text("Linux is not installed.")
+                            .font(.title)
+                            .padding()
+                        Text("\(String(describing: MM.getArch())) Mac detected.")
+                            .font(.title2)
+                            .padding()
+                        Button("Install Ubuntu Focal") {
+                            MM.getDistro(.Focal, arch: MM.getArch())
+                        }
+                        .disabled(MM.installing)
+                        .padding()
+                        
+                        if (MM.installing) {
+                            ProgressView(value: downloadProgress)
+                                .padding()
+                                .onReceive(timer, perform: { _ in
+                                    // had trouble observing MM.downloadProgress for some reason
+                                    // went with this dirty timer hack instead
+                                    // awesome
+                                    if let dp = MM.downloadProgress {
+                                        downloadProgress = dp.fractionCompleted
+                                    }
+                                })
+                        }
+                    }
+                }.onAppear(perform: {
+                    MM.detectInstalled()
+                })
                 Spacer()
             } else {
                 Form {
                     Text("Kernel path")
                     HStack {
-                        TextField("~/distribution/vmlinuz", text: $vp.kernelPath)
+                        TextField("~/distribution/vmlinuz", text: $params.kernelPath)
                         Button("Select file") {
-                            vp.kernelPath = openFile(kind: "kernel")
+                            params.kernelPath = openFile(kind: "kernel")
                         }
                     }
                     
                     Text("Ramdisk path")
                     HStack {
-                        TextField("~/distribution/initrd", text: $vp.ramdiskPath)
+                        TextField("~/distribution/initrd", text: $params.ramdiskPath)
                         Button("Select file") {
-                            vp.ramdiskPath = openFile(kind: "ramdisk")
+                            params.ramdiskPath = openFile(kind: "ramdisk")
                         }
                     }
                     
                     Text("Disk image path")
                     HStack {
-                        TextField("~/distribution/disk.img", text: $vp.diskPath)
+                        TextField("~/distribution/disk.img", text: $params.diskPath)
                         Button("Select file") {
-                            vp.diskPath = openFile(kind: "disk image")
+                            params.diskPath = openFile(kind: "disk image")
                         }
                     }
                     
                     Text("Kernel parameters")
                     HStack {
-                        TextField("console=hvc0", text: $vp.kernelParams)
+                        TextField("console=hvc0", text: $params.kernelParams)
                     }
                 }
                 .disabled(started)
@@ -118,34 +146,34 @@ struct ContentView: View {
                 Form {
                     HStack {
                         Text("CPU cores allocated")
-                        Toggle(isOn: $vp.autoCore, label: {
+                        Toggle(isOn: $params.autoCore, label: {
                             Text("Auto")
                         })
                         Spacer()
-                        Text(vp.autoCore ? "" : "\(Int(vp.coreAlloc)) core(s)")
+                        Text(params.autoCore ? "" : "\(Int(params.coreAlloc)) core(s)")
                     }
                     
-                    Slider(value: $vp.coreAlloc,
+                    Slider(value: $params.coreAlloc,
                            in: paramLimits.minCores...paramLimits.maxCores,
                            step: 1
                     )
                     .padding(.horizontal, 10)
-                    .disabled(vp.autoCore)
+                    .disabled(params.autoCore)
                     
                     HStack {
                         Text("Memory allocated")
-                        Toggle(isOn: $vp.autoMem, label: {
+                        Toggle(isOn: $params.autoMem, label: {
                             Text("Auto")
                         })
                         Spacer()
-                        Text(vp.autoMem ? "" : String(format: "%.2f GB", vp.memoryAlloc))
+                        Text(params.autoMem ? "" : String(format: "%.2f GB", params.memoryAlloc))
                     }
                     
-                    Slider(value: $vp.memoryAlloc,
+                    Slider(value: $params.memoryAlloc,
                            in: paramLimits.minMem...paramLimits.maxMem,
                            step: 0.5)
                         .padding(.horizontal, 10)
-                        .disabled(vp.autoMem)
+                        .disabled(params.autoMem)
                 }
                 .disabled(started)
                 .padding()
@@ -178,26 +206,26 @@ struct ContentView: View {
     }
     
     func saveDefaults() {
-        UserDefaults.standard.set(vp.ramdiskPath, forKey: "ramdiskPath")
-        UserDefaults.standard.set(vp.kernelPath, forKey: "kernelPath")
-        UserDefaults.standard.set(vp.diskPath, forKey: "diskPath")
-        UserDefaults.standard.set(vp.kernelParams, forKey: "kernelParams")
+        UserDefaults.standard.set(params.ramdiskPath, forKey: "ramdiskPath")
+        UserDefaults.standard.set(params.kernelPath, forKey: "kernelPath")
+        UserDefaults.standard.set(params.diskPath, forKey: "diskPath")
+        UserDefaults.standard.set(params.kernelParams, forKey: "kernelParams")
     }
     
     func startVM() {
-        guard vp.kernelPath != "" else {
+        guard params.kernelPath != "" else {
             started = false
             errorMessage = "Missing kernel path."
             errorShown = true
             return
         }
-        guard vp.ramdiskPath != "" else {
+        guard params.ramdiskPath != "" else {
             started = false
             errorMessage = "Missing ramdisk path."
             errorShown = true
             return
         }
-        guard vp.diskPath != "" else {
+        guard params.diskPath != "" else {
             started = false
             errorMessage = "Missing disk path."
             errorShown = true
@@ -207,7 +235,8 @@ struct ContentView: View {
         saveDefaults()
         
         do {
-            try VM.configure(vp: self.vp)
+            let vp = VMParameters(kernelParams: params.kernelParams, kernelPath: params.kernelPath, ramdiskPath: params.ramdiskPath, diskPath: params.diskPath, memoryAlloc: params.memoryAlloc, autoCore: params.autoCore, autoMem: params.autoMem, coreAlloc: params.coreAlloc)
+            try VM.configure(vp)
             try VM.start()
             VM.connect()
         } catch {
@@ -242,7 +271,7 @@ struct ParameterLimits {
     let coreRange = Double(VZVirtualMachineConfiguration.maximumAllowedCPUCount - VZVirtualMachineConfiguration.minimumAllowedCPUCount)
 }
 
-class VMParameters: NSObject, ObservableObject {
+class UIParameters: NSObject, ObservableObject {
     @Published var kernelParams = "console=hvc0"
     @Published var kernelPath = ""
     @Published var ramdiskPath = ""
