@@ -5,7 +5,7 @@
 Open `VFHost.xcodeproj`, add your certificate, and you're off to the races.
 
 ## Binaries
-Notarized binary (pre-release!) available: [VFHost.zip](jds.lol/VFHost.zip)
+Notarized binary (pre-release!) available [for version 0.2](https://github.com/JackSteele/VFHost/releases/tag/0.2)
 
 ## Known issues
 - On x86_64, install will likely fail.
