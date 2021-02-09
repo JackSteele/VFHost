@@ -9,7 +9,7 @@
 		<key>ramdisk</key>
 		<string>http://cloud-images.ubuntu.com/focal/current/unpacked/focal-server-cloudimg-arm64-initrd-generic</string>
 		<key>disk</key>
-		<string>http://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.img</string>
+		<string>http://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.tar.gz</string>
 	</dict>
 	<key>Focal x86_64</key>
 	<dict>
@@ -18,7 +18,7 @@
 		<key>ramdisk</key>
 		<string>http://cloud-images.ubuntu.com/focal/current/unpacked/focal-server-cloudimg-amd64-initrd-generic</string>
 		<key>disk</key>
-		<string>http://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img</string>
+		<string>http://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.tar.gz</string>
 	</dict>
 </dict>
 </plist>

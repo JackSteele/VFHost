@@ -14,7 +14,7 @@ struct ContentView: View {
     
     let paramLimits = ParameterLimits()
     
-    @State var downloadProgress = 0.0
+    @State var installProgress = 0.0
     @State var errorShown = false
     @State var errorMessage = ""
     @State var started = false
@@ -39,6 +39,12 @@ struct ContentView: View {
         if let def = UserDefaults.standard.string(forKey: "kernelParams") {
             params.kernelParams = def
         }
+        let def = UserDefaults.standard.object(forKey: "managed") as? Bool
+        if let def = def {
+            self.managed = def
+        } else {
+            self.managed = true
+        }
     }
     
     var body: some View {
@@ -52,14 +58,29 @@ struct ContentView: View {
                     Text("")
                 }
                 .onChange(of: started, perform: { running in
-                    if running {
-                        startVM()
+                    if managed {
+                        if running {
+                            if let distro = MM.installed.first {
+                                MM.startVM(distro!)
+                                MM.vm.startScreen()
+                                MM.vm.attachScreen()
+                            }
+                        } else {
+                            MM.stopVM()
+                        }
                     } else {
-                        VM.stop()
+                        if running {
+                            if validateParams() {
+                                saveDefaults()
+                                startVM()
+                            }
+                        } else {
+                            VM.stop()
+                        }
                     }
                 })
                 .toggleStyle(SwitchToggleStyle())
-                .disabled(managed)
+                .disabled(managed ? (MM.installed.count == 0) : false)
             }
             Divider()
             if managed {
@@ -70,6 +91,9 @@ struct ContentView: View {
                         Text("Linux is installed.")
                             .font(.title)
                             .padding()
+                        Text("root : toor")
+                            .font(.body)
+                            .padding(.horizontal)
                         Spacer()
                         Text("Something wrong?")
                             .font(.footnote)
@@ -78,29 +102,35 @@ struct ContentView: View {
                                 MM.rmDistro(distro!)
                             }
                         }
+                        .disabled(started)
                         .font(.footnote)
                     } else {
-                        Text("Linux is not installed.")
+                        Text(MM.installing ? "Linux is installing." : "Linux is not installed.")
                             .font(.title)
                             .padding()
                         Text("\(String(describing: MM.getArch())) Mac detected.")
                             .font(.title2)
                             .padding()
                         Button("Install Ubuntu Focal") {
-                            MM.getDistro(.Focal, arch: MM.getArch())
+//                            if termPerms() {
+                                MM.getDistro(.Focal, arch: MM.getArch())
+//                            } else {
+//                                self.errorMessage = "Terminal permission is necessary."
+//                                self.errorShown = true
+//                            }
                         }
                         .disabled(MM.installing)
                         .padding()
                         
                         if (MM.installing) {
-                            ProgressView(value: downloadProgress)
+                            ProgressView(value: installProgress)
                                 .padding()
                                 .onReceive(timer, perform: { _ in
-                                    // had trouble observing MM.downloadProgress for some reason
-                                    // went with this dirty timer hack instead
-                                    // awesome
-                                    if let dp = MM.downloadProgress {
-                                        downloadProgress = dp.fractionCompleted
+                                    // had trouble observing MM.installProgress for some reason
+                                    // went with this dirty timer instead
+                                    // kinda sucks
+                                    if let dp = MM.installProgress {
+                                        installProgress = dp.fractionCompleted
                                     }
                                 })
                         }
@@ -187,18 +217,27 @@ struct ContentView: View {
             
             HStack {
                 Button("Reconnect") {
-                    VM.connect()
+                    if managed {
+                        MM.vm.connect()
+                    } else {
+                        VM.connect()
+                    }
                 }
                 .disabled(!started)
                 Spacer()
                 Toggle(isOn: $managed, label: {
                     Text("Managed mode")
                 })
+                .onChange(of: managed, perform: { value in
+                    UserDefaults.standard.set(self.managed, forKey: "managed")
+                })
+                .disabled(MM.installing)
+                .disabled(started)
             }
             .padding()
         }
         .padding()
-        .frame(width: 500, height: 550, alignment: .center)
+        .frame(minWidth: 300, idealWidth: 500, maxWidth: .infinity, minHeight: 550, idealHeight: 550, maxHeight: .infinity, alignment: .center)
         .onAppear {
             loadData()
         }
@@ -212,28 +251,29 @@ struct ContentView: View {
         UserDefaults.standard.set(params.kernelParams, forKey: "kernelParams")
     }
     
-    func startVM() {
+    func validateParams() -> Bool {
         guard params.kernelPath != "" else {
             started = false
             errorMessage = "Missing kernel path."
             errorShown = true
-            return
+            return false
         }
         guard params.ramdiskPath != "" else {
             started = false
             errorMessage = "Missing ramdisk path."
             errorShown = true
-            return
+            return false
         }
         guard params.diskPath != "" else {
             started = false
             errorMessage = "Missing disk path."
             errorShown = true
-            return
+            return false
         }
-        
-        saveDefaults()
-        
+        return true
+    }
+    
+    func startVM() {
         do {
             let vp = VMParameters(kernelParams: params.kernelParams, kernelPath: params.kernelPath, ramdiskPath: params.ramdiskPath, diskPath: params.diskPath, memoryAlloc: params.memoryAlloc, autoCore: params.autoCore, autoMem: params.autoMem, coreAlloc: params.coreAlloc)
             try VM.configure(vp)
@@ -242,6 +282,17 @@ struct ContentView: View {
         } catch {
             started.toggle()
         }
+    }
+    
+    func termPerms() -> Bool {
+        let script = "tell application \"Terminal\" to activate"
+        let applescript = NSAppleScript(source: script)
+        var error: NSDictionary?
+        applescript?.executeAndReturnError(&error)
+        if let _ = error {
+            return false
+        }
+        return true
     }
     
     func openFile(kind: String) -> String {
@@ -256,7 +307,6 @@ struct ContentView: View {
                 return url.path
             }
         }
-        
         return ""
     }
 }
