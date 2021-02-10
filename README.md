@@ -1,4 +1,4 @@
-# VFHost - work in progress
+# VFHost.app
 #### VFHost is a (currently) very simple GUI for hosting Linux VMs on macOS Big Sur's Virtualization.framework.
 
 ## Binaries
