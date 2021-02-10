@@ -11,11 +11,15 @@ import Virtualization
 struct ContentView: View {
     @ObservedObject var VM = VirtualMachine()
     @ObservedObject var MM = ManagedMode()
-    
+
     let paramLimits = ParameterLimits()
+    @EnvironmentObject var appDelegate: AppDelegate
+//    @State var quitWarningShown = false
     
+    @State private var window: NSWindow?
     @State var installProgress = 0.0
     @State var errorShown = false
+    @State var uninstallConfirmationShown = false
     @State var errorMessage = ""
     @State var started = false
     @State var managed = true
@@ -60,21 +64,25 @@ struct ContentView: View {
                 .onChange(of: started, perform: { running in
                     if managed {
                         if running {
+                            appDelegate.canTerminate = false
                             if let distro = MM.installed.first {
                                 MM.startVM(distro!)
                                 MM.vm.startScreen()
                                 MM.vm.attachScreen()
                             }
                         } else {
+                            appDelegate.canTerminate = true
                             MM.stopVM()
                         }
                     } else {
                         if running {
+                            appDelegate.canTerminate = false
                             if validateParams() {
                                 saveDefaults()
                                 startVM()
                             }
                         } else {
+                            appDelegate.canTerminate = true
                             VM.stop()
                         }
                     }
@@ -98,15 +106,23 @@ struct ContentView: View {
                         Text("Something wrong?")
                             .font(.footnote)
                         Button("Uninstall Ubuntu Focal") {
-                            for distro in MM.installed {
-                                MM.rmDistro(distro!)
-                            }
+                            uninstallConfirmationShown = true
                         }
+                        .alert(isPresented: $uninstallConfirmationShown, content: {
+                            Alert(title: Text("Are you sure?"), message: Text("Continuing will permanently delete the guest operating system. All data stored in the VM will be lost."), primaryButton: Alert.Button.cancel(), secondaryButton: .destructive(Text("Uninstall"), action: {
+                                for distro in MM.installed {
+                                    MM.rmDistro(distro!)
+                                }
+                            }))
+                        })
                         .disabled(started)
                         .font(.footnote)
                     } else {
                         Text(MM.installing ? "Linux is installing." : "Linux is not installed.")
                             .font(.title)
+                            .padding()
+                        Text("Installation requires about 10GB of space.")
+                            .font(.title2)
                             .padding()
                         Text("\(String(describing: MM.getArch())) Mac detected.")
                             .font(.title2)
@@ -207,9 +223,6 @@ struct ContentView: View {
                 }
                 .disabled(started)
                 .padding()
-                .alert(isPresented: $errorShown, content: {
-                    Alert(title: Text(errorMessage))
-                })
             }
             
             /// Bottom bit
@@ -218,7 +231,7 @@ struct ContentView: View {
             HStack {
                 Button("Reconnect") {
                     if managed {
-                        MM.vm.connect()
+                        MM.vm.attachScreen()
                     } else {
                         VM.connect()
                     }
@@ -241,7 +254,21 @@ struct ContentView: View {
         .onAppear {
             loadData()
         }
-        
+        .background(WindowAccessor(window: self.$window))
+        .alert(isPresented: $errorShown, content: {
+            Alert(title: Text(errorMessage))
+        })
+        .alert(isPresented: Binding<Bool>(get: { appDelegate.shouldTerminate ? self.started : false }, set: { appDelegate.shouldTerminate = $0 }), content: {
+            Alert(title: Text("Quit requested."),
+                  message: Text("Do you really want to quit while the VM is running?"),
+                  primaryButton: .default(Text("Don't quit!"), action: {
+                    self.appDelegate.noQuit()
+                  }),
+                  secondaryButton: .destructive(Text("Quit"), action: {
+                    self.appDelegate.quit()
+                  }))
+        })
+
     }
     
     func saveDefaults() {
@@ -308,6 +335,22 @@ struct ContentView: View {
             }
         }
         return ""
+    }
+}
+
+struct WindowAccessor: NSViewRepresentable {
+    @Binding var window: NSWindow?
+    
+    func makeNSView(context: Context) -> some NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            self.window = view.window
+        }
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSViewType, context: Context) {
+        
     }
 }
 
