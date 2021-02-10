@@ -11,10 +11,10 @@ import Virtualization
 struct ContentView: View {
     @ObservedObject var VM = VirtualMachine()
     @ObservedObject var MM = ManagedMode()
-
+    
     let paramLimits = ParameterLimits()
     @EnvironmentObject var appDelegate: AppDelegate
-//    @State var quitWarningShown = false
+    @State var windowDelegate = WindowDelegate()
     
     @State private var window: NSWindow?
     @State var installProgress = 0.0
@@ -65,6 +65,7 @@ struct ContentView: View {
                     if managed {
                         if running {
                             appDelegate.canTerminate = false
+                            windowDelegate.canTerminate = false
                             if let distro = MM.installed.first {
                                 MM.startVM(distro!)
                                 MM.vm.startScreen()
@@ -72,23 +73,29 @@ struct ContentView: View {
                             }
                         } else {
                             appDelegate.canTerminate = true
+                            windowDelegate.canTerminate = true
                             MM.stopVM()
                         }
                     } else {
                         if running {
                             appDelegate.canTerminate = false
+                            windowDelegate.canTerminate = false
                             if validateParams() {
                                 saveDefaults()
                                 startVM()
                             }
                         } else {
                             appDelegate.canTerminate = true
+                            windowDelegate.canTerminate = true
                             VM.stop()
                         }
                     }
                 })
                 .toggleStyle(SwitchToggleStyle())
                 .disabled(managed ? (MM.installed.count == 0) : false)
+                .alert(isPresented: $errorShown, content: {
+                    Alert(title: Text(errorMessage))
+                })
             }
             Divider()
             if managed {
@@ -106,14 +113,18 @@ struct ContentView: View {
                         Text("Something wrong?")
                             .font(.footnote)
                         Button("Uninstall Ubuntu Focal") {
-                            uninstallConfirmationShown = true
+                            self.uninstallConfirmationShown.toggle()
                         }
                         .alert(isPresented: $uninstallConfirmationShown, content: {
-                            Alert(title: Text("Are you sure?"), message: Text("Continuing will permanently delete the guest operating system. All data stored in the VM will be lost."), primaryButton: Alert.Button.cancel(), secondaryButton: .destructive(Text("Uninstall"), action: {
-                                for distro in MM.installed {
-                                    MM.rmDistro(distro!)
-                                }
-                            }))
+                            Alert(title: Text("Uninstall?"),
+                                  message: Text("Are you sure you'd like to uninstall this VM?"),
+                                  primaryButton: .cancel(Text("Don't do it!"), action: {
+                                    //                    self.uninstallConfirmationShown = false
+                                  }),secondaryButton: .destructive(Text("Uninstall"), action: {
+                                    for distro in MM.installed {
+                                        MM.rmDistro(distro!)
+                                    }
+                                  }))
                         })
                         .disabled(started)
                         .font(.footnote)
@@ -128,12 +139,7 @@ struct ContentView: View {
                             .font(.title2)
                             .padding()
                         Button("Install Ubuntu Focal") {
-//                            if termPerms() {
-                                MM.getDistro(.Focal, arch: MM.getArch())
-//                            } else {
-//                                self.errorMessage = "Terminal permission is necessary."
-//                                self.errorShown = true
-//                            }
+                            MM.getDistro(.Focal, arch: MM.getArch())
                         }
                         .disabled(MM.installing)
                         .padding()
@@ -254,21 +260,17 @@ struct ContentView: View {
         .onAppear {
             loadData()
         }
-        .background(WindowAccessor(window: self.$window))
-        .alert(isPresented: $errorShown, content: {
-            Alert(title: Text(errorMessage))
-        })
-        .alert(isPresented: Binding<Bool>(get: { appDelegate.shouldTerminate ? self.started : false }, set: { appDelegate.shouldTerminate = $0 }), content: {
-            Alert(title: Text("Quit requested."),
-                  message: Text("Do you really want to quit while the VM is running?"),
-                  primaryButton: .default(Text("Don't quit!"), action: {
-                    self.appDelegate.noQuit()
-                  }),
-                  secondaryButton: .destructive(Text("Quit"), action: {
-                    self.appDelegate.quit()
-                  }))
-        })
-
+        .background(WindowAccessor(window: self.$window, windowDelegate: self.$windowDelegate))
+        //        .alert(isPresented: Binding<Bool>(get: { appDelegate.shouldTerminate ? self.started : false }, set: { appDelegate.shouldTerminate = $0 }), content: {
+        //            Alert(title: Text("Quit requested."),
+        //                  message: Text("Do you really want to quit while the VM is running?"),
+        //                  primaryButton: .default(Text("Don't quit!"), action: {
+        //                    self.appDelegate.noQuit()
+        //                  }),
+        //                  secondaryButton: .destructive(Text("Quit"), action: {
+        //                    self.appDelegate.quit()
+        //                  }))
+        //        })
     }
     
     func saveDefaults() {
@@ -340,10 +342,12 @@ struct ContentView: View {
 
 struct WindowAccessor: NSViewRepresentable {
     @Binding var window: NSWindow?
+    @Binding var windowDelegate: WindowDelegate
     
     func makeNSView(context: Context) -> some NSView {
         let view = NSView()
         DispatchQueue.main.async {
+            view.window?.delegate = self.windowDelegate
             self.window = view.window
         }
         return view
@@ -351,6 +355,33 @@ struct WindowAccessor: NSViewRepresentable {
     
     func updateNSView(_ nsView: NSViewType, context: Context) {
         
+    }
+}
+
+class WindowDelegate: NSObject, NSWindowDelegate {
+    var canTerminate = true
+    
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if canTerminate {
+            return true
+        } else {
+            let alert = NSAlert()
+            alert.messageText = "Really quit?"
+            alert.informativeText = "You're about to close VFHost with a VM running. Is this what you want?"
+            alert.addButton(withTitle: "No, don't quit.")
+            alert.addButton(withTitle: "Yes, quit.")
+            alert.alertStyle = .critical
+            let res = alert.runModal()
+            if res == .alertFirstButtonReturn {
+                return false
+            } else if res == .alertSecondButtonReturn {
+                // I feel bad for this
+                // sincerely
+                exit(0)
+                return true
+            }
+            return false
+        }
     }
 }
 

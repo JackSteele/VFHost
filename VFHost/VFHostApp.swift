@@ -41,24 +41,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         if NSApplication.shared.windows.count == 0 {
             return .terminateNow
         } else {
-            shouldTerminate = true
-            return .terminateLater
+            let alert = NSAlert()
+            alert.messageText = "Really quit?"
+            alert.informativeText = "You're about to close VFHost with a VM running. Is this what you want?"
+            alert.addButton(withTitle: "No, don't quit.")
+            alert.addButton(withTitle: "Yes, quit.")
+            alert.alertStyle = .critical
+            let res = alert.runModal()
+            if res == .alertFirstButtonReturn {
+                return .terminateCancel
+            } else if res == .alertSecondButtonReturn {
+                return .terminateNow
+            }
+
+            return .terminateNow
         }
-    }
-    
-    func noQuit() {
-        NSApplication.shared.reply(toApplicationShouldTerminate: false)
-    }
-    
-    func quit() {
-        NSApplication.shared.reply(toApplicationShouldTerminate: true)
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return true
-    }
-    
-    func applicationWillTerminate(_ notification: Notification) {
-//        self.willTerminate = true
     }
 }
