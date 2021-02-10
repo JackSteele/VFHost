@@ -101,13 +101,7 @@ class ManagedMode: NSObject, ObservableObject {
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
         
-        //        task = Process()
-        //        task.launchPath = "/bin/mv"
         let extracted = distDir.appendingPathComponent("\(String(describing: dist).lowercased())-server-cloudimg-\(String(describing: arch).lowercased()).img").path
-        //        task.arguments = [extracted, diskPath]
-        //        task.launch()
-        //        task.waitUntilExit()
-        //        if task.terminationStatus != 0 { return false }
         
         task = Process()
         task.launchPath = "/usr/bin/env"
@@ -193,7 +187,6 @@ class ManagedMode: NSObject, ObservableObject {
                 self.installProgress?.resignCurrent()
             }
             self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
-//            self.vm.attachScreen()
             sleep(5)
             self.vm.execute("")
             self.vm.execute("")
@@ -236,7 +229,6 @@ class ManagedMode: NSObject, ObservableObject {
                         self.installProgress?.resignCurrent()
                     }
                     self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
-//                    self.vm.attachScreen()
                     sleep(5)
                     self.vm.execute("root")
                     sleep(1)
