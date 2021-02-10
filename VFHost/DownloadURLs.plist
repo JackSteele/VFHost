@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Focal arm64</key>
+	<dict>
+		<key>kernel</key>
+		<string>http://cloud-images.ubuntu.com/focal/current/unpacked/focal-server-cloudimg-arm64-vmlinuz-generic</string>
+		<key>ramdisk</key>
+		<string>http://cloud-images.ubuntu.com/focal/current/unpacked/focal-server-cloudimg-arm64-initrd-generic</string>
+		<key>disk</key>
+		<string>http://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.tar.gz</string>
+	</dict>
+	<key>Focal x86_64</key>
+	<dict>
+		<key>kernel</key>
+		<string>http://cloud-images.ubuntu.com/focal/current/unpacked/focal-server-cloudimg-amd64-vmlinuz-generic</string>
+		<key>ramdisk</key>
+		<string>http://cloud-images.ubuntu.com/focal/current/unpacked/focal-server-cloudimg-amd64-initrd-generic</string>
+		<key>disk</key>
+		<string>http://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.tar.gz</string>
+	</dict>
+</dict>
+</plist>

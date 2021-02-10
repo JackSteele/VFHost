@@ -17,27 +17,29 @@ class VirtualMachine: ObservableObject {
     
     var ptyFD: Int32 = 0
     var ptyPath = ""
+    var screenPID: Int32 = 0
+    var screenSession: Process?
     
     @Published var running = false
     
-    func configure(vp: VMParameters) throws {
+    func configure(_ vp: VMParameters) throws {
         let config = VZVirtualMachineConfiguration()
         
-        let bootLoader = VZLinuxBootLoader(kernelURL: URL(string: "file://\(vp.kernelPath)")!)
+        let bootLoader = VZLinuxBootLoader(kernelURL: URL(fileURLWithPath: vp.kernelPath))
         if vp.ramdiskPath != "" {
-            bootLoader.initialRamdiskURL = URL(string: "file://\(vp.ramdiskPath)")!
+            bootLoader.initialRamdiskURL = URL(fileURLWithPath: vp.ramdiskPath)
         }
         bootLoader.commandLine = vp.kernelParams
         
         config.bootLoader = bootLoader
         
         do {
-            let storage = try VZDiskImageStorageDeviceAttachment(url: URL(string: "file://\(vp.diskPath)")!, readOnly: false)
+            let storage = try VZDiskImageStorageDeviceAttachment(url: URL(fileURLWithPath: vp.diskPath), readOnly: false)
             let blockDevice = VZVirtioBlockDeviceConfiguration(attachment: storage)
             config.storageDevices = [blockDevice]
         } catch {
             os_log("Couldn't attach disk image")
-            return
+            throw VZError(.internalError)
         }
         
         let ptyFD = configurePTY()
@@ -90,6 +92,7 @@ class VirtualMachine: ObservableObject {
             os_log(.error, "Error opening PTY")
             return -1
         }
+        
         self.ptyPath = String(cString: ptsname(ptyFD))
         self.ptyFD = ptyFD
         
@@ -108,10 +111,23 @@ class VirtualMachine: ObservableObject {
         }
     }
     
+    // Calling this breaks everything, I might be an idiot
+    func gracefulStop() {
+        guard let vm = vm else { return }
+        if (vm.canRequestStop) {
+            do {
+                try vm.requestStop()
+            } catch {
+                os_log(.error, "Couldn't stop VM gracefully")
+            }
+        }
+    }
+    
     func stop() {
         if vm != nil {
-            vm = nil
             // lol
+            vm = nil
+            // got 'em
             os.close(ptyFD)
             os_log("VM stopped")
         }
@@ -123,6 +139,47 @@ class VirtualMachine: ObservableObject {
         } else {
             return false
         }
+    }
+    
+    func startScreen() {
+        let task = Process()
+        task.launchPath = "/usr/bin/screen"
+        task.arguments = ["-S", "VFHost", "-dm", ptyPath]
+//        print(task.arguments)
+        task.launch()
+        self.screenPID = task.processIdentifier + 1
+        task.waitUntilExit()
+    }
+    
+    func wipeScreens() {
+        let task = Process()
+        task.launchPath = "/usr/bin/screen"
+        task.arguments = ["-wipe"]
+        task.launch()
+        task.waitUntilExit()
+    }
+    
+    func attachScreen() {
+        let script = "tell application \"Terminal\" to activate do script \"screen -x VFHost\""
+        let applescript = NSAppleScript(source: script)
+        var error: NSDictionary?
+        applescript?.executeAndReturnError(&error)
+        if let error = error {
+            NSLog(error["NSAppleScriptErrorMessage"] as! String)
+        }
+//        let task = Process()
+//        task.launchPath = "/usr/bin/env"
+//        task.arguments = ["screen", "-x", "VFHost"]
+//        task.launch()
+//        self.screenSession = task
+    }
+    
+    func execute(_ cmd: String) {
+        let task = Process()
+        task.launchPath = "/usr/bin/screen"
+        task.arguments = ["-S", "VFHost", "-p0", "-X", "stuff", "\(cmd)\n"]
+        task.launch()
+        task.waitUntilExit()
     }
     
     func status() -> VZVirtualMachine.State? {
@@ -137,6 +194,17 @@ class VirtualMachine: ObservableObject {
         if let error = error {
             NSLog(error["NSAppleScriptErrorMessage"] as! String)
         }
-        
     }
+}
+
+struct VMParameters {
+    var kernelParams = "console=hvc0"
+    var kernelPath = ""
+    var ramdiskPath = ""
+    var diskPath = ""
+    // in GB - very lazy
+    var memoryAlloc: Double
+    var autoCore = true
+    var autoMem = true
+    var coreAlloc: Double
 }
