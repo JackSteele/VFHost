@@ -11,11 +11,11 @@ import Virtualization
 struct ContentView: View {
     @ObservedObject var VM = VirtualMachine()
     @ObservedObject var MM = ManagedMode()
-    
+
     let paramLimits = ParameterLimits()
     @EnvironmentObject var appDelegate: AppDelegate
     @State var windowDelegate = WindowDelegate()
-    
+
     @State private var window: NSWindow?
     @State var installProgress = 0.0
     @State var errorShown = false
@@ -25,11 +25,11 @@ struct ContentView: View {
     @State var managed = true
     @State var height = 300
     @State var installed: [Distro?] = []
-    
+
     @StateObject var params = UIParameters()
-    
+
     let timer = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
-    
+
     func loadData() {
         if let def = UserDefaults.standard.string(forKey: "kernelPath") {
             params.kernelPath = def
@@ -50,14 +50,14 @@ struct ContentView: View {
             self.managed = true
         }
     }
-    
+
     var body: some View {
         VStack {
-            HStack{
+            HStack {
                 Spacer()
                 Text(started ? "VM running" : "VM stopped").font(.largeTitle)
                 Spacer()
-                
+
                 Toggle(isOn: $started) {
                     Text("")
                 }
@@ -101,7 +101,7 @@ struct ContentView: View {
             if managed {
                 Spacer()
                 VStack {
-                    if (MM.installed.count > 0) {
+                    if MM.installed.count > 0 {
                         Spacer()
                         Text("Linux is installed.")
                             .font(.title)
@@ -120,7 +120,7 @@ struct ContentView: View {
                                   message: Text("Are you sure you'd like to uninstall this VM?"),
                                   primaryButton: .cancel(Text("Don't do it!"), action: {
                                     //                    self.uninstallConfirmationShown = false
-                                  }),secondaryButton: .destructive(Text("Uninstall"), action: {
+                                  }), secondaryButton: .destructive(Text("Uninstall"), action: {
                                     for distro in MM.installed {
                                         MM.rmDistro(distro!)
                                     }
@@ -143,8 +143,8 @@ struct ContentView: View {
                         }
                         .disabled(MM.installing)
                         .padding()
-                        
-                        if (MM.installing) {
+
+                        if MM.installing {
                             ProgressView(value: installProgress)
                                 .padding()
                                 .onReceive(timer, perform: { _ in
@@ -170,7 +170,7 @@ struct ContentView: View {
                             params.kernelPath = openFile(kind: "kernel")
                         }
                     }
-                    
+
                     Text("Ramdisk path")
                     HStack {
                         TextField("~/distribution/initrd", text: $params.ramdiskPath)
@@ -178,7 +178,7 @@ struct ContentView: View {
                             params.ramdiskPath = openFile(kind: "ramdisk")
                         }
                     }
-                    
+
                     Text("Disk image path")
                     HStack {
                         TextField("~/distribution/disk.img", text: $params.diskPath)
@@ -186,7 +186,7 @@ struct ContentView: View {
                             params.diskPath = openFile(kind: "disk image")
                         }
                     }
-                    
+
                     Text("Kernel parameters")
                     HStack {
                         TextField("console=hvc0", text: $params.kernelParams)
@@ -194,7 +194,7 @@ struct ContentView: View {
                 }
                 .disabled(started)
                 .padding()
-                
+
                 Form {
                     HStack {
                         Text("CPU cores allocated")
@@ -204,14 +204,14 @@ struct ContentView: View {
                         Spacer()
                         Text(params.autoCore ? "" : "\(Int(params.coreAlloc)) core(s)")
                     }
-                    
+
                     Slider(value: $params.coreAlloc,
                            in: paramLimits.minCores...paramLimits.maxCores,
                            step: 1
                     )
                     .padding(.horizontal, 10)
                     .disabled(params.autoCore)
-                    
+
                     HStack {
                         Text("Memory allocated")
                         Toggle(isOn: $params.autoMem, label: {
@@ -220,7 +220,7 @@ struct ContentView: View {
                         Spacer()
                         Text(params.autoMem ? "" : String(format: "%.2f GB", params.memoryAlloc))
                     }
-                    
+
                     Slider(value: $params.memoryAlloc,
                            in: paramLimits.minMem...paramLimits.maxMem,
                            step: 0.5)
@@ -230,10 +230,10 @@ struct ContentView: View {
                 .disabled(started)
                 .padding()
             }
-            
+
             /// Bottom bit
             Divider()
-            
+
             HStack {
                 Button("Reconnect") {
                     if managed {
@@ -247,7 +247,7 @@ struct ContentView: View {
                 Toggle(isOn: $managed, label: {
                     Text("Managed mode")
                 })
-                .onChange(of: managed, perform: { value in
+                .onChange(of: managed, perform: { _ in
                     UserDefaults.standard.set(self.managed, forKey: "managed")
                 })
                 .disabled(MM.installing)
@@ -272,14 +272,14 @@ struct ContentView: View {
         //                  }))
         //        })
     }
-    
+
     func saveDefaults() {
         UserDefaults.standard.set(params.ramdiskPath, forKey: "ramdiskPath")
         UserDefaults.standard.set(params.kernelPath, forKey: "kernelPath")
         UserDefaults.standard.set(params.diskPath, forKey: "diskPath")
         UserDefaults.standard.set(params.kernelParams, forKey: "kernelParams")
     }
-    
+
     func validateParams() -> Bool {
         guard params.kernelPath != "" else {
             started = false
@@ -301,7 +301,7 @@ struct ContentView: View {
         }
         return true
     }
-    
+
     func startVM() {
         do {
             let vp = VMParameters(kernelParams: params.kernelParams, kernelPath: params.kernelPath, ramdiskPath: params.ramdiskPath, diskPath: params.diskPath, memoryAlloc: params.memoryAlloc, autoCore: params.autoCore, autoMem: params.autoMem, coreAlloc: params.coreAlloc)
@@ -312,7 +312,7 @@ struct ContentView: View {
             started.toggle()
         }
     }
-    
+
     func termPerms() -> Bool {
         let script = "tell application \"Terminal\" to activate"
         let applescript = NSAppleScript(source: script)
@@ -323,15 +323,15 @@ struct ContentView: View {
         }
         return true
     }
-    
+
     func openFile(kind: String) -> String {
         let dialog = NSOpenPanel()
         dialog.title = "Select your \(kind)"
         dialog.allowsMultipleSelection = false
         dialog.canChooseDirectories = false
         dialog.showsResizeIndicator = true
-        
-        if (dialog.runModal() == NSApplication.ModalResponse.OK) {
+
+        if dialog.runModal() == NSApplication.ModalResponse.OK {
             if let url = dialog.url {
                 return url.path
             }
@@ -343,7 +343,7 @@ struct ContentView: View {
 struct WindowAccessor: NSViewRepresentable {
     @Binding var window: NSWindow?
     @Binding var windowDelegate: WindowDelegate
-    
+
     func makeNSView(context: Context) -> some NSView {
         let view = NSView()
         DispatchQueue.main.async {
@@ -352,15 +352,15 @@ struct WindowAccessor: NSViewRepresentable {
         }
         return view
     }
-    
+
     func updateNSView(_ nsView: NSViewType, context: Context) {
-        
+
     }
 }
 
 class WindowDelegate: NSObject, NSWindowDelegate {
     var canTerminate = true
-    
+
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         if canTerminate {
             return true

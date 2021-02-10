@@ -28,16 +28,16 @@ struct VFHostApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     @Published var shouldTerminate = false
     @Published var canTerminate = true
-    
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
     }
-    
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if canTerminate {
             return .terminateNow
         }
-        
+
         if NSApplication.shared.windows.count == 0 {
             return .terminateNow
         } else {
@@ -57,7 +57,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             return .terminateNow
         }
     }
-    
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return true
     }

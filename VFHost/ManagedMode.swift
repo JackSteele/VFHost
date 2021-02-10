@@ -13,17 +13,17 @@ class ManagedMode: NSObject, ObservableObject {
     @Published var installProgress: Progress?
     @Published var fractionCompleted: Double?
     @Published var installed: [Distro?] = []
-    
+
     private var progressObs: [NSKeyValueObservation?] = []
     let fm = FileManager.default
-    
+
     var vm = VirtualMachine()
-    
+
     func getArch() -> Arch {
         let archInfo = NSString(utf8String: NXGetLocalArchInfo().pointee.description)
         return archInfo!.contains("ARM64") ? .arm64 : .x86_64
     }
-    
+
     func startVM(_ dist: Distro) {
         let arch = String(describing: getArch())
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Focal")
@@ -36,7 +36,7 @@ class ManagedMode: NSObject, ObservableObject {
         let autoMem = false
         let coreAlloc = 2.0
         let vp = VMParameters(kernelParams: kernelParams, kernelPath: kernelPath, ramdiskPath: ramdiskPath, diskPath: diskPath, memoryAlloc: memoryAlloc, autoCore: autoCore, autoMem: autoMem, coreAlloc: coreAlloc)
-        
+
         do {
             try vm.configure(vp)
             try vm.start()
@@ -47,10 +47,10 @@ class ManagedMode: NSObject, ObservableObject {
         // msg from kernel:
         // Check rootdelay= (did the system wait long enough?)
         // doesn't need to wait at all on first launch
-        
+
     }
-    
-    func extractKernel(_ dist: Distro, arch: Arch) -> Bool{
+
+    func extractKernel(_ dist: Distro, arch: Arch) -> Bool {
         var task = Process()
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Focal")
         let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
@@ -71,8 +71,8 @@ class ManagedMode: NSObject, ObservableObject {
         if task.terminationStatus != 0 { return false }
         return true
     }
-    
-    func extractDisk(_ dist: Distro, arch: Arch) -> Bool{
+
+    func extractDisk(_ dist: Distro, arch: Arch) -> Bool {
         var task = Process()
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent(String(describing: dist))
         let diskPath = distDir.appendingPathComponent("disk-\(arch)").path
@@ -85,14 +85,14 @@ class ManagedMode: NSObject, ObservableObject {
         task.launch()
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
-        
+
         task = Process()
         task.launchPath = "/bin/rm"
         task.arguments = [diskPath]
         task.launch()
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
-        
+
         task = Process()
         task.launchPath = "/usr/bin/env"
         let emptyPath = distDir.appendingPathComponent("disk-\(String(describing: arch))").path
@@ -100,30 +100,30 @@ class ManagedMode: NSObject, ObservableObject {
         task.launch()
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
-        
+
         let extracted = distDir.appendingPathComponent("\(String(describing: dist).lowercased())-server-cloudimg-\(String(describing: arch).lowercased()).img").path
-        
+
         task = Process()
         task.launchPath = "/usr/bin/env"
         task.arguments = ["dd", "if=\(extracted)", "of=\(emptyPath)", "bs=4m", "conv=notrunc"]    // , ">>", diskPath]
         task.launch()
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
-        
+
         installProgress?.resignCurrent()
         return true
     }
-    
+
     func stopVM() {
         vm.stop()
     }
-    
+
     func detectInstalled() {
         let fm = FileManager.default
         let ourDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost")
-        
+
         var installed = [Distro]()
-        
+
         for dist in Distro.allCases {
             let distDir = ourDir.appendingPathComponent(String(describing: dist)).path
             var isDir: ObjCBool = false
@@ -133,10 +133,10 @@ class ManagedMode: NSObject, ObservableObject {
                 }
             }
         }
-        
+
         self.installed = installed
     }
-    
+
     func firstLaunch(_ dist: Distro, arch: Arch) {
         switch dist {
         case .Focal:
@@ -147,11 +147,11 @@ class ManagedMode: NSObject, ObservableObject {
             }
         }
     }
-    
+
     func focalFirstLaunch(_ a: Arch) {
         installProgress = Progress(totalUnitCount: 20)
         installProgress?.becomeCurrent(withPendingUnitCount: 1)
-        
+
         let arch = String(describing: a)
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Focal")
         let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
@@ -165,9 +165,9 @@ class ManagedMode: NSObject, ObservableObject {
         vm = VirtualMachine()
         installProgress?.resignCurrent()
         installProgress?.becomeCurrent(withPendingUnitCount: 1)
-        
+
         let vp = VMParameters(kernelParams: kernelParams, kernelPath: kernelPath, ramdiskPath: ramdiskPath, diskPath: diskPath, memoryAlloc: memoryAlloc, autoCore: autoCore, autoMem: autoMem, coreAlloc: coreAlloc)
-        
+
         do {
             try vm.configure(vp)
             try vm.start()
@@ -175,11 +175,11 @@ class ManagedMode: NSObject, ObservableObject {
             os_log(.error, "Something went wrong starting the VM")
             return
         }
-        
+
         installProgress?.resignCurrent()
-        
+
         self.vm.startScreen()
-        
+
         DispatchQueue.global().async {
             for _ in 0...5 {
                 self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
@@ -220,7 +220,7 @@ class ManagedMode: NSObject, ObservableObject {
                     os_log(.error, "Something went wrong starting the VM")
                     return
                 }
-                
+
                 self.vm.startScreen()
                 DispatchQueue.global().async {
                     for _ in 0...5 {
@@ -245,28 +245,28 @@ class ManagedMode: NSObject, ObservableObject {
             }
         }
     }
-    
+
     func getDistro(_ dist: Distro, arch: Arch) {
         guard let path = Bundle.main.path(forResource: "DownloadURLs", ofType: "plist") else { return }
         let data = try! Data(contentsOf: URL(fileURLWithPath: path))
-        let urls = try! PropertyListSerialization.propertyList(from: data, options: .mutableContainers, format: nil) as! [String : [String : String]]
+        let urls = try! PropertyListSerialization.propertyList(from: data, options: .mutableContainers, format: nil) as! [String: [String: String]]
         let sessionConfig = URLSessionConfiguration.default
         let session = URLSession(configuration: sessionConfig)
         let distURLs = urls[String(describing: dist) + " " + String(describing: arch)]!
         let fm = FileManager.default
         let ourDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost")
         let distDir = ourDir.appendingPathComponent(String(describing: dist))
-        
+
         installProgress = Progress(totalUnitCount: Int64(distURLs.count))
-        
+
         do {
             try fm.createDirectory(at: distDir, withIntermediateDirectories: true, attributes: nil)
         } catch {
             return
         }
-        
+
         installing = true
-        
+
         for (type, urlString) in distURLs {
             var req = URLRequest(url: URL(string: urlString)!)
             req.httpMethod = "GET"
@@ -279,7 +279,7 @@ class ManagedMode: NSObject, ObservableObject {
                     } catch {
                         os_log(.error, "I just couldn't pull it off this time. Sorry guys.")
                         return
-                        
+
                     }
                     if self.installProgress!.isFinished {
                         DispatchQueue.main.async {
@@ -292,7 +292,7 @@ class ManagedMode: NSObject, ObservableObject {
             task.resume()
         }
     }
-    
+
     func rmDistro(_ dist: Distro) {
         let fm = FileManager.default
         let ourDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost")
