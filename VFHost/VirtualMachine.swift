@@ -160,7 +160,7 @@ class VirtualMachine: ObservableObject {
     }
     
     func attachScreen() {
-        let script = "tell application \"Terminal\" to do script \"screen -x VFHost\""
+        let script = "tell application \"Terminal\" to activate do script \"screen -x VFHost\""
         let applescript = NSAppleScript(source: script)
         var error: NSDictionary?
         applescript?.executeAndReturnError(&error)
