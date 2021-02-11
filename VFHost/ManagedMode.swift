@@ -146,6 +146,7 @@ class ManagedMode: NSObject, ObservableObject {
     }
 
     func firstLaunch(_ dist: Distro, arch: Arch) {
+        installProgress = Progress(totalUnitCount: 20)
         switch dist {
         case .Focal:
             if extractKernel(dist, arch: arch) {
@@ -157,9 +158,7 @@ class ManagedMode: NSObject, ObservableObject {
     }
 
     func focalFirstLaunch(_ a: Arch) {
-        installProgress = Progress(totalUnitCount: 20)
         installProgress?.becomeCurrent(withPendingUnitCount: 1)
-
         let arch = String(describing: a)
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Focal")
         let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
