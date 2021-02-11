@@ -51,6 +51,7 @@ class ManagedMode: NSObject, ObservableObject {
     }
 
     func extractKernel(_ dist: Distro, arch: Arch) -> Bool {
+        if (arch == .x86_64) { return true } // x86_64 kernel doesn't seem to be gzipped
         var task = Process()
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Focal")
         let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
@@ -93,6 +94,13 @@ class ManagedMode: NSObject, ObservableObject {
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
 
+        var archString = ""
+        if (arch == .x86_64) {
+            archString = "amd64"
+        } else if (arch == .arm64) {
+            archString = "arm64"
+        }
+        
         task = Process()
         task.launchPath = "/usr/bin/env"
         let emptyPath = distDir.appendingPathComponent("disk-\(String(describing: arch))").path
@@ -101,7 +109,7 @@ class ManagedMode: NSObject, ObservableObject {
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
 
-        let extracted = distDir.appendingPathComponent("\(String(describing: dist).lowercased())-server-cloudimg-\(String(describing: arch).lowercased()).img").path
+        let extracted = distDir.appendingPathComponent("\(String(describing: dist).lowercased())-server-cloudimg-\(archString).img").path
 
         task = Process()
         task.launchPath = "/usr/bin/env"
