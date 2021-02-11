@@ -17,7 +17,6 @@ This information will be incorporated in the app, but for now...
 Open `VFHost.xcodeproj`, add your certificate, and you're off to the races.
 
 ## Known issues & workarounds
-- On x86_64, install will likely hang permanently. I am about to be working on this.
 - VFHost uses `screen` internally to attach to your VM. On rare occasion, `screen` sessions are left behind and error messages appear, even after the app is restarted. First, make sure you're not using any `screen` sessions yourself - we're about to kill them all. Open Terminal and run `% pkill SCREEN`.
 - If you find issues, please report them!
 
@@ -25,4 +24,4 @@ Open `VFHost.xcodeproj`, add your certificate, and you're off to the races.
 **[evansm7/vftool](https://github.com/evansm7/vftool)** - this is a more mature (CLI-only) wrapper for Virtualization.framework
 
 ## License
-VFHost is under the BSD license - you can find that [here](https://github.com/JackSteele/VFHost/blob/main/LICENSE)
+VFHost is under the BSD license - you can find it [here](https://github.com/JackSteele/VFHost/blob/main/LICENSE)
