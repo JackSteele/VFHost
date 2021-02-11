@@ -1,6 +1,6 @@
 ![Image with icon and text "VFHost.app"](https://github.com/JackSteele/VFHost/raw/main/header.png)
 
-#### VFHost is a simple GUI for hosting Linux VMs on macOS Big Sur's Virtualization.framework.
+### VFHost is a simple GUI for hosting Linux VMs on macOS Big Sur's Virtualization.framework.
 
 ## Downloads
 Downloads are available [for version 0.2.x](https://github.com/JackSteele/VFHost/releases). These builds are notarized by Apple.
