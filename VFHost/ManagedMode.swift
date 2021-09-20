@@ -47,7 +47,6 @@ class ManagedMode: NSObject, ObservableObject {
         // msg from kernel:
         // Check rootdelay= (did the system wait long enough?)
         // doesn't need to wait at all on first launch
-
     }
 
     func extractKernel(_ dist: Distro, arch: Arch) -> Bool {
@@ -154,6 +153,8 @@ class ManagedMode: NSObject, ObservableObject {
                     focalFirstLaunch(arch)
                 }
             }
+        case .Hirsute:
+            break
         }
     }
 
@@ -316,6 +317,7 @@ class ManagedMode: NSObject, ObservableObject {
 // We have one option right now
 enum Distro: CaseIterable {
     case Focal
+    case Hirsute
 }
 
 enum Arch {
