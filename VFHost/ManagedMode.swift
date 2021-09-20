@@ -79,7 +79,7 @@ class ManagedMode: NSObject, ObservableObject {
         let diskPath = distDir.appendingPathComponent("disk-\(arch)").path
         installProgress?.becomeCurrent(withPendingUnitCount: 2)
         // Cmd + C
-        // Cmd + V
+        // Cmd + V lol
         task = Process()
         task.launchPath = "/usr/bin/tar"
         task.arguments = ["xvf", diskPath, "-C", distDir.path]
@@ -284,7 +284,7 @@ class ManagedMode: NSObject, ObservableObject {
                     do {
                         try data.write(to: distDir.appendingPathComponent(type + "-" + String(describing: arch)))
                     } catch {
-                        os_log(.error, "I just couldn't pull it off this time. Sorry guys.")
+                        os_log(.error, "dataTask failed. Check network connection")
                         return
 
                     }
@@ -308,7 +308,7 @@ class ManagedMode: NSObject, ObservableObject {
             try fm.removeItem(at: distDir)
             detectInstalled()
         } catch {
-            os_log(.error, "had trouble removing distro directory")
+            os_log(.error, "Could not remove distribution directory. Manually remove at ~/Library/Application Support/VFHost/")
         }
     }
 }

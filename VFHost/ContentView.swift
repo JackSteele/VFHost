@@ -406,7 +406,7 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         //                // I feel bad for this
         //                // sincerely
         //                exit(0)
-        ////                return true
+        //               return true
         //            }
         //            return true
         //        }
