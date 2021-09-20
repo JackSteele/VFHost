@@ -43,7 +43,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         } else {
             let alert = NSAlert()
             alert.messageText = "Really quit?"
-            alert.informativeText = "Quitting VFHost will terminate a running virtual machine. Are you sure?"
+            alert.informativeText = "Quitting VFHost will terminate a running VM. Are you sure?"
             alert.addButton(withTitle: "No, don't quit.")
             alert.addButton(withTitle: "Yes, quit.")
             alert.alertStyle = .critical

@@ -124,13 +124,13 @@ struct ContentView: View {
                         }
                         .alert(isPresented: $uninstallConfirmationShown, content: {
                             Alert(title: Text("Uninstall?"),
-                                  message: Text("Are you sure you'd like to uninstall this VM?"),
-                                  primaryButton: .cancel(Text("Don't do it!"), action: {
-                                  }), secondaryButton: .destructive(Text("Uninstall"), action: {
-                                    for distro in MM.installed {
-                                        MM.rmDistro(distro!)
-                                    }
-                                  }))
+                                  message: Text("This VM will be destroyed. Are you sure?"),
+                                  primaryButton: .cancel(Text("No, don't do it."), action: {
+                            }), secondaryButton: .destructive(Text("Yes, do it."), action: {
+                                for distro in MM.installed {
+                                    MM.rmDistro(distro!)
+                                }
+                            }))
                         })
                         .disabled(started)
                         .font(.footnote)
@@ -218,8 +218,8 @@ struct ContentView: View {
                            in: paramLimits.minCores...paramLimits.maxCores,
                            step: 1
                     )
-                    .padding(.horizontal, 10)
-                    .disabled(params.autoCore)
+                        .padding(.horizontal, 10)
+                        .disabled(params.autoCore)
                     
                     HStack {
                         Text("Memory allocated")
@@ -256,11 +256,11 @@ struct ContentView: View {
                 Toggle(isOn: $managed, label: {
                     Text("Managed mode")
                 })
-                .onChange(of: managed, perform: { _ in
-                    UserDefaults.standard.set(self.managed, forKey: "managed")
-                })
-                .disabled(MM.installing)
-                .disabled(started)
+                    .onChange(of: managed, perform: { _ in
+                        UserDefaults.standard.set(self.managed, forKey: "managed")
+                    })
+                    .disabled(MM.installing)
+                    .disabled(started)
             }
             .padding()
         }
@@ -270,16 +270,6 @@ struct ContentView: View {
             loadData()
         }
         .background(WindowAccessor(window: self.$window, windowDelegate: self.$windowDelegate))
-        //        .alert(isPresented: Binding<Bool>(get: { appDelegate.shouldTerminate ? self.started : false }, set: { appDelegate.shouldTerminate = $0 }), content: {
-        //            Alert(title: Text("Quit requested."),
-        //                  message: Text("Do you really want to quit while the VM is running?"),
-        //                  primaryButton: .default(Text("Don't quit!"), action: {
-        //                    self.appDelegate.noQuit()
-        //                  }),
-        //                  secondaryButton: .destructive(Text("Quit"), action: {
-        //                    self.appDelegate.quit()
-        //                  }))
-        //        })
     }
     
     func kill() {
@@ -389,27 +379,6 @@ class WindowDelegate: NSObject, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         NSApplication.shared.hide(sender)
         return false
-        
-        //        if canTerminate {
-        //            return true
-        //        } else {
-        //            let alert = NSAlert()
-        //            alert.messageText = "Really quit?"
-        //            alert.informativeText = "You're about to close VFHost with a VM running. Is this what you want?"
-        //            alert.addButton(withTitle: "No, don't quit.")
-        //            alert.addButton(withTitle: "Yes, quit.")
-        //            alert.alertStyle = .critical
-        //            let res = alert.runModal()
-        //            if res == .alertFirstButtonReturn {
-        //                return false
-        //            } else if res == .alertSecondButtonReturn {
-        //                // I feel bad for this
-        //                // sincerely
-        //                exit(0)
-        //               return true
-        //            }
-        //            return true
-        //        }
     }
 }
 
