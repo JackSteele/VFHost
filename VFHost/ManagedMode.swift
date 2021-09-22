@@ -13,20 +13,20 @@ class ManagedMode: NSObject, ObservableObject {
     @Published var installProgress: Progress?
     @Published var fractionCompleted: Double?
     @Published var installed: [Distro?] = []
-
+    
     private var progressObs: [NSKeyValueObservation?] = []
     let fm = FileManager.default
-
+    
     var vm = VirtualMachine()
-
+    
     func getArch() -> Arch {
         let archInfo = NSString(utf8String: NXGetLocalArchInfo().pointee.description)
         return archInfo!.contains("ARM64") ? .arm64 : .x86_64
     }
-
+    
     func startVM(_ dist: Distro) {
         let arch = String(describing: getArch())
-        let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Focal")
+        let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent(String(describing: dist))
         let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
         let ramdiskPath = distDir.appendingPathComponent("ramdisk-\(arch)").path
         let diskPath = distDir.appendingPathComponent("disk-\(arch)").path
@@ -36,7 +36,7 @@ class ManagedMode: NSObject, ObservableObject {
         let autoMem = false
         let coreAlloc = 2.0
         let vp = VMParameters(kernelParams: kernelParams, kernelPath: kernelPath, ramdiskPath: ramdiskPath, diskPath: diskPath, memoryAlloc: memoryAlloc, autoCore: autoCore, autoMem: autoMem, coreAlloc: coreAlloc)
-
+        
         do {
             try vm.configure(vp)
             try vm.start()
@@ -48,11 +48,11 @@ class ManagedMode: NSObject, ObservableObject {
         // Check rootdelay= (did the system wait long enough?)
         // doesn't need to wait at all on first launch
     }
-
+    
     func extractKernel(_ dist: Distro, arch: Arch) -> Bool {
-        if (arch == .x86_64) { return true } // x86_64 kernel doesn't seem to be gzipped
+        if (arch == .x86_64 && dist == .Focal) { return true } // x86_64 kernel doesn't seem to be gzipped
         var task = Process()
-        let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Focal")
+        let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent(String(describing: dist))
         let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
         installProgress?.becomeCurrent(withPendingUnitCount: 2)
         task.launchPath = "/bin/mv"
@@ -71,7 +71,7 @@ class ManagedMode: NSObject, ObservableObject {
         if task.terminationStatus != 0 { return false }
         return true
     }
-
+    
     func extractDisk(_ dist: Distro, arch: Arch) -> Bool {
         var task = Process()
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent(String(describing: dist))
@@ -85,14 +85,14 @@ class ManagedMode: NSObject, ObservableObject {
         task.launch()
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
-
+        
         task = Process()
         task.launchPath = "/bin/rm"
         task.arguments = [diskPath]
         task.launch()
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
-
+        
         var archString = ""
         if (arch == .x86_64) {
             archString = "amd64"
@@ -107,30 +107,30 @@ class ManagedMode: NSObject, ObservableObject {
         task.launch()
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
-
+        
         let extracted = distDir.appendingPathComponent("\(String(describing: dist).lowercased())-server-cloudimg-\(archString).img").path
-
+        
         task = Process()
         task.launchPath = "/usr/bin/env"
         task.arguments = ["dd", "if=\(extracted)", "of=\(emptyPath)", "bs=4m", "conv=notrunc"]    // , ">>", diskPath]
         task.launch()
         task.waitUntilExit()
         if task.terminationStatus != 0 { return false }
-
+        
         installProgress?.resignCurrent()
         return true
     }
-
+    
     func stopVM() {
         vm.stop()
     }
-
+    
     func detectInstalled() {
         let fm = FileManager.default
         let ourDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost")
-
+        
         var installed = [Distro]()
-
+        
         for dist in Distro.allCases {
             let distDir = ourDir.appendingPathComponent(String(describing: dist)).path
             var isDir: ObjCBool = false
@@ -140,10 +140,10 @@ class ManagedMode: NSObject, ObservableObject {
                 }
             }
         }
-
+        
         self.installed = installed
     }
-
+    
     func firstLaunch(_ dist: Distro, arch: Arch) {
         installProgress = Progress(totalUnitCount: 20)
         switch dist {
@@ -152,12 +152,20 @@ class ManagedMode: NSObject, ObservableObject {
                 if extractDisk(dist, arch: arch) {
                     focalFirstLaunch(arch)
                 }
+            } else {
+                os_log(.error, "Kernel extraction failed")
             }
         case .Hirsute:
-            break
+            if extractKernel(dist, arch: arch) {
+                if extractDisk(dist, arch: arch) {
+                    hirsuteFirstLaunch(arch)
+                }
+            } else {
+                os_log(.error, "Kernel extraction failed")
+            }
         }
     }
-
+    
     func focalFirstLaunch(_ a: Arch) {
         installProgress?.becomeCurrent(withPendingUnitCount: 1)
         let arch = String(describing: a)
@@ -173,9 +181,9 @@ class ManagedMode: NSObject, ObservableObject {
         vm = VirtualMachine()
         installProgress?.resignCurrent()
         installProgress?.becomeCurrent(withPendingUnitCount: 1)
-
+        
         let vp = VMParameters(kernelParams: kernelParams, kernelPath: kernelPath, ramdiskPath: ramdiskPath, diskPath: diskPath, memoryAlloc: memoryAlloc, autoCore: autoCore, autoMem: autoMem, coreAlloc: coreAlloc)
-
+        
         do {
             try vm.configure(vp)
             try vm.start()
@@ -183,11 +191,11 @@ class ManagedMode: NSObject, ObservableObject {
             os_log(.error, "Something went wrong starting the VM")
             return
         }
-
+        
         installProgress?.resignCurrent()
-
+        
         self.vm.startScreen()
-
+        
         DispatchQueue.global().async {
             for _ in 0...5 {
                 self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
@@ -218,9 +226,9 @@ class ManagedMode: NSObject, ObservableObject {
             self.installProgress?.resignCurrent()
             DispatchQueue.main.async {
                 self.stopVM()
-
+                
                 let vp = VMParameters(kernelParams: "\(kernelParams) root=/dev/vda", kernelPath: kernelPath, ramdiskPath: ramdiskPath, diskPath: diskPath, memoryAlloc: memoryAlloc, autoCore: autoCore, autoMem: autoMem, coreAlloc: coreAlloc)
-
+                
                 do {
                     try self.vm.configure(vp)
                     try self.vm.start()
@@ -228,7 +236,7 @@ class ManagedMode: NSObject, ObservableObject {
                     os_log(.error, "Something went wrong starting the VM")
                     return
                 }
-
+                
                 self.vm.startScreen()
                 DispatchQueue.global().async {
                     for _ in 0...5 {
@@ -253,7 +261,103 @@ class ManagedMode: NSObject, ObservableObject {
             }
         }
     }
-
+    
+    func hirsuteFirstLaunch(_ a: Arch) {
+        installProgress?.becomeCurrent(withPendingUnitCount: 1)
+        let arch = String(describing: a)
+        let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Hirsute")
+        let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
+        let ramdiskPath = distDir.appendingPathComponent("ramdisk-\(arch)").path
+        let diskPath = distDir.appendingPathComponent("disk-\(arch)").path
+        let kernelParams = "console=hvc0"
+        let memoryAlloc = 2.0
+        let autoCore = false
+        let autoMem = false
+        let coreAlloc = 2.0
+        vm = VirtualMachine()
+        installProgress?.resignCurrent()
+        installProgress?.becomeCurrent(withPendingUnitCount: 1)
+        
+        let vp = VMParameters(kernelParams: kernelParams, kernelPath: kernelPath, ramdiskPath: ramdiskPath, diskPath: diskPath, memoryAlloc: memoryAlloc, autoCore: autoCore, autoMem: autoMem, coreAlloc: coreAlloc)
+        
+        do {
+            try vm.configure(vp)
+            try vm.start()
+        } catch {
+            os_log(.error, "Something went wrong starting the VM")
+            return
+        }
+        
+        installProgress?.resignCurrent()
+        
+        self.vm.startScreen()
+        
+        DispatchQueue.global().async {
+            for _ in 0...5 {
+                self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
+                sleep(10)
+                self.installProgress?.resignCurrent()
+            }
+            self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
+            sleep(5)
+            self.vm.execute("")
+            self.vm.execute("")
+            self.vm.execute("")
+            self.vm.execute("mkdir /mnt")
+            self.vm.execute("mount /dev/vda /mnt")
+            self.vm.execute("chroot /mnt")
+            self.vm.execute("touch /etc/cloud/cloud-init.disabled")
+            self.vm.execute("echo 'root:toor' | chpasswd")
+            self.vm.execute("ssh-keygen -A")
+            let path = "/etc/netplan/01-dhcp.yaml"
+            self.vm.execute("echo \"network:\" >> \(path)")
+            self.vm.execute("echo \"    renderer: networkd\" >> \(path)")
+            self.vm.execute("echo \"    version: 2\" >> \(path)")
+            self.vm.execute("echo \"    ethernets:\" >> \(path)")
+            self.vm.execute("echo \"        enp0s1:\" >> \(path)")
+            self.vm.execute("echo \"            dhcp4: true\" >> \(path)")
+            self.vm.execute("exit")
+            self.vm.execute("umount /dev/vda")
+            sleep(5)
+            self.installProgress?.resignCurrent()
+            DispatchQueue.main.async {
+                self.stopVM()
+                
+                let vp = VMParameters(kernelParams: "\(kernelParams) root=/dev/vda", kernelPath: kernelPath, ramdiskPath: ramdiskPath, diskPath: diskPath, memoryAlloc: memoryAlloc, autoCore: autoCore, autoMem: autoMem, coreAlloc: coreAlloc)
+                
+                do {
+                    try self.vm.configure(vp)
+                    try self.vm.start()
+                } catch {
+                    os_log(.error, "Something went wrong starting the VM")
+                    return
+                }
+                
+                self.vm.startScreen()
+                DispatchQueue.global().async {
+                    for _ in 0...5 {
+                        self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
+                        sleep(10)
+                        self.installProgress?.resignCurrent()
+                    }
+                    self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
+                    sleep(5)
+                    self.vm.execute("root")
+                    sleep(1)
+                    self.vm.execute("toor")
+                    sleep(1)
+                    self.vm.execute("resize2fs /dev/vda")
+                    sleep(10)
+                    DispatchQueue.main.async {
+                        self.stopVM()
+                        self.installing = false
+                        self.detectInstalled()
+                    }
+                }
+            }
+        }
+    }
+    
     func getDistro(_ dist: Distro, arch: Arch) {
         guard let path = Bundle.main.path(forResource: "DownloadURLs", ofType: "plist") else { return }
         let data = try! Data(contentsOf: URL(fileURLWithPath: path))
@@ -264,17 +368,17 @@ class ManagedMode: NSObject, ObservableObject {
         let fm = FileManager.default
         let ourDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost")
         let distDir = ourDir.appendingPathComponent(String(describing: dist))
-
+        
         installProgress = Progress(totalUnitCount: Int64(distURLs.count))
-
+        
         do {
             try fm.createDirectory(at: distDir, withIntermediateDirectories: true, attributes: nil)
         } catch {
             return
         }
-
+        
         installing = true
-
+        
         for (type, urlString) in distURLs {
             var req = URLRequest(url: URL(string: urlString)!)
             req.httpMethod = "GET"
@@ -287,7 +391,7 @@ class ManagedMode: NSObject, ObservableObject {
                     } catch {
                         os_log(.error, "dataTask failed. Check network connection")
                         return
-
+                        
                     }
                     if self.installProgress!.isFinished {
                         DispatchQueue.main.async {
@@ -300,7 +404,7 @@ class ManagedMode: NSObject, ObservableObject {
             task.resume()
         }
     }
-
+    
     func rmDistro(_ dist: Distro) {
         let fm = FileManager.default
         let ourDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost")

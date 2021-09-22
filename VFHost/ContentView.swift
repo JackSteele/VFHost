@@ -149,6 +149,11 @@ struct ContentView: View {
                         }
                         .disabled(MM.installing)
                         .padding()
+                        Button("Install Ubuntu Hirsute") {
+                            MM.getDistro(.Hirsute, arch: MM.getArch())
+                        }
+                        .disabled(MM.installing)
+                        .padding()
                         
                         if MM.installing {
                             ProgressView(value: installProgress)
