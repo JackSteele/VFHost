@@ -50,7 +50,8 @@ class ManagedMode: NSObject, ObservableObject {
     }
     
     func extractKernel(_ dist: Distro, arch: Arch) -> Bool {
-        if (arch == .x86_64 && dist == .Focal) { return true } // x86_64 kernel doesn't seem to be gzipped
+        if (arch == .x86_64 && dist == .Focal) || (arch == .x86_64 && dist == .Hirsute) { return true } // x86_64 kernel doesn't seem to be gzipped
+        // This only works on amd64 images. am I missing something?
         var task = Process()
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent(String(describing: dist))
         let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
