@@ -119,7 +119,7 @@ struct ContentView: View {
                         Spacer()
                         Text("Something wrong?")
                             .font(.footnote)
-                        Button("Uninstall Ubuntu Focal") {
+                        Button("Uninstall Ubuntu") {
                             self.uninstallConfirmationShown.toggle()
                         }
                         .alert(isPresented: $uninstallConfirmationShown, content: {
