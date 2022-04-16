@@ -10,9 +10,11 @@ import os.log
 
 class ManagedMode: NSObject, ObservableObject {
     @Published var installing: Bool = false
+    @Published var installStatus: String = ""
     @Published var installProgress: Progress?
     @Published var fractionCompleted: Double?
     @Published var installed: [Distro?] = []
+    @Published var activeDistroName: String = ""
     
     private var progressObs: [NSKeyValueObservation?] = []
     let fm = FileManager.default
@@ -50,12 +52,13 @@ class ManagedMode: NSObject, ObservableObject {
     }
     
     func extractKernel(_ dist: Distro, arch: Arch) -> Bool {
-        if (arch == .x86_64 && dist == .Focal) || (arch == .x86_64 && dist == .Hirsute) { return true } // x86_64 kernel doesn't seem to be gzipped
+        if (arch == .x86_64 && dist == .Focal) || (arch == .x86_64 && dist == .Jammy) { return true } // x86_64 kernel doesn't seem to be gzipped
         // This only works on amd64 images. am I missing something?
         var task = Process()
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent(String(describing: dist))
         let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
         installProgress?.becomeCurrent(withPendingUnitCount: 2)
+        installStatus = "Extracting kernel..."
         task.launchPath = "/bin/mv"
         task.arguments = [kernelPath, kernelPath + ".gz"]
         task.launch()
@@ -78,6 +81,7 @@ class ManagedMode: NSObject, ObservableObject {
         let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent(String(describing: dist))
         let diskPath = distDir.appendingPathComponent("disk-\(arch)").path
         installProgress?.becomeCurrent(withPendingUnitCount: 2)
+        installStatus = "Extracting disk..."
         // Cmd + C
         // Cmd + V lol
         task = Process()
@@ -101,6 +105,7 @@ class ManagedMode: NSObject, ObservableObject {
             archString = "arm64"
         }
         
+        installStatus = "Expanding disk..."
         task = Process()
         task.launchPath = "/usr/bin/env"
         let emptyPath = distDir.appendingPathComponent("disk-\(String(describing: arch))").path
@@ -143,6 +148,9 @@ class ManagedMode: NSObject, ObservableObject {
         }
         
         self.installed = installed
+        if let distro = installed.first {
+            self.activeDistroName = String(describing: distro)
+        }
     }
     
     func firstLaunch(_ dist: Distro, arch: Arch) {
@@ -156,10 +164,10 @@ class ManagedMode: NSObject, ObservableObject {
             } else {
                 os_log(.error, "Kernel extraction failed")
             }
-        case .Hirsute:
+        case .Jammy:
             if extractKernel(dist, arch: arch) {
                 if extractDisk(dist, arch: arch) {
-                    hirsuteFirstLaunch(arch)
+                    jammyFirstLaunch(arch)
                 }
             } else {
                 os_log(.error, "Kernel extraction failed")
@@ -263,10 +271,10 @@ class ManagedMode: NSObject, ObservableObject {
         }
     }
     
-    func hirsuteFirstLaunch(_ a: Arch) {
+    func jammyFirstLaunch(_ a: Arch) {
         installProgress?.becomeCurrent(withPendingUnitCount: 1)
         let arch = String(describing: a)
-        let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Hirsute")
+        let distDir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("VFHost").appendingPathComponent("Jammy")
         let kernelPath = distDir.appendingPathComponent("kernel-\(arch)").path
         let ramdiskPath = distDir.appendingPathComponent("ramdisk-\(arch)").path
         let diskPath = distDir.appendingPathComponent("disk-\(arch)").path
@@ -294,6 +302,7 @@ class ManagedMode: NSObject, ObservableObject {
         self.vm.startScreen()
         
         DispatchQueue.global().async {
+            DispatchQueue.main.async { self.installStatus = "Waiting for boot..." }
             for _ in 0...5 {
                 self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
                 sleep(10)
@@ -301,6 +310,7 @@ class ManagedMode: NSObject, ObservableObject {
             }
             self.installProgress?.becomeCurrent(withPendingUnitCount: 1)
             sleep(5)
+            DispatchQueue.main.async { self.installStatus = "Setting root password..." }
             self.vm.execute("")
             self.vm.execute("")
             self.vm.execute("")
@@ -311,6 +321,7 @@ class ManagedMode: NSObject, ObservableObject {
             self.vm.execute("echo 'root:toor' | chpasswd")
             self.vm.execute("ssh-keygen -A")
             let path = "/etc/netplan/01-dhcp.yaml"
+            DispatchQueue.main.async { self.installStatus = "Configuring network..." }
             self.vm.execute("echo \"network:\" >> \(path)")
             self.vm.execute("echo \"    renderer: networkd\" >> \(path)")
             self.vm.execute("echo \"    version: 2\" >> \(path)")
@@ -331,6 +342,7 @@ class ManagedMode: NSObject, ObservableObject {
                     try self.vm.start()
                 } catch {
                     os_log(.error, "Something went wrong starting the VM")
+                    self.installStatus = "Installation failed. Please quit, remove, and relaunch."
                     return
                 }
                 
@@ -347,6 +359,7 @@ class ManagedMode: NSObject, ObservableObject {
                     sleep(1)
                     self.vm.execute("toor")
                     sleep(1)
+                    DispatchQueue.main.async { self.installStatus = "Resizing filesystem..." }
                     self.vm.execute("resize2fs /dev/vda")
                     sleep(10)
                     DispatchQueue.main.async {
@@ -371,7 +384,7 @@ class ManagedMode: NSObject, ObservableObject {
         let distDir = ourDir.appendingPathComponent(String(describing: dist))
         
         installProgress = Progress(totalUnitCount: Int64(distURLs.count))
-        
+
         do {
             try fm.createDirectory(at: distDir, withIntermediateDirectories: true, attributes: nil)
         } catch {
@@ -380,7 +393,9 @@ class ManagedMode: NSObject, ObservableObject {
         
         installing = true
         
+        
         for (type, urlString) in distURLs {
+            installStatus = "Downloading..." // \(type)..."
             var req = URLRequest(url: URL(string: urlString)!)
             req.httpMethod = "GET"
             let task = session.dataTask(with: req) { (data, res, error) in
@@ -422,7 +437,7 @@ class ManagedMode: NSObject, ObservableObject {
 // We have one option right now
 enum Distro: CaseIterable {
     case Focal
-    case Hirsute
+    case Jammy
 }
 
 enum Arch {
