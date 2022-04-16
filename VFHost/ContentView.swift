@@ -110,7 +110,7 @@ struct ContentView: View {
                 VStack {
                     if MM.installed.count > 0 {
                         Spacer()
-                        Text("Linux is installed.")
+                        Text("Ubuntu \(MM.activeDistroName)")
                             .font(.title)
                             .padding()
                         Text("root : toor")
@@ -135,7 +135,7 @@ struct ContentView: View {
                         .disabled(started)
                         .font(.footnote)
                     } else {
-                        Text(MM.installing ? "Linux is installing." : "Linux is not installed.")
+                        Text(MM.installing ? "Ubuntu is installing." : "Ubuntu is not installed.")
                             .font(.title)
                             .padding()
                         Text("Installation requires about 10GB of space.")
@@ -149,14 +149,14 @@ struct ContentView: View {
                         }
                         .disabled(MM.installing)
                         .padding()
-                        Button("Install Ubuntu Hirsute") {
-                            MM.getDistro(.Hirsute, arch: MM.getArch())
+                        Button("Install Ubuntu Jammy") {
+                            MM.getDistro(.Jammy, arch: MM.getArch())
                         }
                         .disabled(MM.installing)
                         .padding()
                         
                         if MM.installing {
-                            ProgressView(value: installProgress)
+                            ProgressView(MM.installStatus, value: installProgress)
                                 .padding()
                                 .onReceive(timer, perform: { _ in
                                     // had trouble observing MM.installProgress for some reason
