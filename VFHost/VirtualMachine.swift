@@ -110,7 +110,7 @@ class VirtualMachine: ObservableObject {
         }
     }
 
-    // Calling this breaks everything, I might be an idiot
+    // Calling this breaks everything
     func gracefulStop() {
         guard let vm = vm else { return }
         if vm.canRequestStop {
@@ -144,7 +144,6 @@ class VirtualMachine: ObservableObject {
         let task = Process()
         task.launchPath = "/usr/bin/screen"
         task.arguments = ["-S", "VFHost", "-dm", ptyPath]
-//        print(task.arguments)
         task.launch()
         self.screenPID = task.processIdentifier + 1
         task.waitUntilExit()
@@ -166,11 +165,6 @@ class VirtualMachine: ObservableObject {
         if let error = error {
             NSLog(error["NSAppleScriptErrorMessage"] as! String)
         }
-//        let task = Process()
-//        task.launchPath = "/usr/bin/env"
-//        task.arguments = ["screen", "-x", "VFHost"]
-//        task.launch()
-//        self.screenSession = task
     }
 
     func execute(_ cmd: String) {
